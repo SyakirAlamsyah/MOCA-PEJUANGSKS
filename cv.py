@@ -5,7 +5,7 @@ from ultralytics import YOLO
 model = YOLO("runs/detect/train/weights/best.pt")
 
 #  Setup Computer Vision (Kamera)
-cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+cap = cv2.VideoCapture(0)
 
 #Setup Kondisi
 classcon = ['no head cap', 'no mark', 'lab coat', 'no goggle']
