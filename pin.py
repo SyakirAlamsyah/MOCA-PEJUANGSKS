@@ -27,3 +27,20 @@ io.setmode(io.BOARD)
 
 io.setup(buzp, io.OUT, initial=io.LOW)
 
+try:
+    print("Buzzer menyala, tekan Ctrl+C untuk berhenti.")
+    while True:
+        # Nyalakan buzzer
+        io.output(buzp, io.HIGH)
+        time.sleep(0.5)
+        
+        # Matikan buzzer
+        io.output(buzp, io.LOW)
+        time.sleep(0.5)
+
+except KeyboardInterrupt:
+    print("\nProgram berhenti.")
+finally:
+    io.output(buzp, io.LOW)
+    io.cleanup()
+
