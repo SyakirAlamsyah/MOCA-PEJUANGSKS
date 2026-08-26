@@ -12,10 +12,11 @@ print("CTRL+C untuk berhenti")
 try:
     while True:
         io.output(ledp, io.HIGH)
-        time.sleep(1)
+        time.sleep(2)
 
         io.output(ledp, io.LOW)
-        time.sleep(1)
+        time.sleep(2)
 
 except KeyboardInterrupt:
+    io.output(ledp, io.LOW)
     io.cleanup()
