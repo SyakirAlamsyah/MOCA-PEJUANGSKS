@@ -21,26 +21,25 @@ import time
 #     io.output(ledp, io.LOW)
 #     io.cleanup()
 
-buzp = 7
+buzp = 15
 
 io.setmode(io.BOARD)
 
 io.setup(buzp, io.OUT, initial=io.LOW)
 
-try:
-    print("Buzzer menyala, tekan Ctrl+C untuk berhenti.")
-    while True:
-        # Nyalakan buzzer
+def beep():
         io.output(buzp, io.HIGH)
-        time.sleep(0.5)
-        
-        # Matikan buzzer
+        time.sleep(0.0005)
         io.output(buzp, io.LOW)
-        time.sleep(0.5)
+        time.sleep(0.0005)
+     
+
+try:
+    while True:
+         beep()
+         time.sleep(0.5)
 
 except KeyboardInterrupt:
     print("\nProgram berhenti.")
-finally:
-    io.output(buzp, io.LOW)
     io.cleanup()
 
