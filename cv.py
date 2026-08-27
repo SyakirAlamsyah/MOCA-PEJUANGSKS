@@ -35,13 +35,13 @@ while True:
 
             #FSM nya kaya gni
             if class_name == classcon[0]: 
-                print(f"Deteksi: BUZZER MENYALA {classcon[0]}")
+                print("Deteksi: BUZZER MENYALA " + {classcon[0]})
             elif class_name == classcon[1]: 
-                print(f"Deteksi: BUZZER MENYALA {classcon[1]}")
+                print("Deteksi: BUZZER MENYALA " + {classcon[1]})
             elif class_name == classcon[2]: 
-                print(f"Deteksi: BUZZER MENYALA {classcon[2]}")
+                print("Deteksi: BUZZER MENYALA " + {classcon[2]})
             elif class_name == classcon[3]: 
-                print(f"Deteksi: BUZZER MENYALA {classcon[3]}")
+                print("Deteksi: BUZZER MENYALA " + {classcon[3]})
 
     annotated_frame = results[0].plot()
 

@@ -28,10 +28,10 @@ io.setmode(io.BOARD)
 io.setup(buzp, io.OUT, initial=io.LOW)
 
 def beep():
-        io.output(buzp, io.HIGH)
-        time.sleep(0.0005)
-        io.output(buzp, io.LOW)
-        time.sleep(0.0005)
+      io.output(buzp, io.HIGH)
+      time.sleep(0.0005)
+      io.output(buzp, io.LOW)
+      time.sleep(0.0005)
      
 
 try:
