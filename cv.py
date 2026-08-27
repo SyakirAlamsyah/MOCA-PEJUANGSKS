@@ -1,20 +1,25 @@
 import cv2
 from ultralytics import YOLO
 
-# Path Modelnya
+# Nanti ubah ekstensi ini menjadi .engine setelah berhasil dikonversi
 model = YOLO("runs/detect/train/weights/best.pt")
 
-#  Setup Computer Vision (Kamera)
+# Setup Computer Vision (Kamera)
 cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
 
-#Setup Kondisi
+# --- TAMBAHAN OPTIMALISASI RESOLUSI ---
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+# --------------------------------------
+
+# Setup Kondisi
 classcon = ['no head cap', 'no mark', 'lab coat', 'no goggle']
 
 if not cap.isOpened():
-    print("Error: Tidak dapat membuka kamera. Pastikan kamera tidak dipakai aplikasi lain.")
+    print("Error: Tidak dapat membuka kamera.")
     exit()
 
-print("Kamera berhasil dibuka! Tekan tombol 'q' pada jendela gambar untuk keluar.")
+print("Kamera berhasil dibuka! Tekan tombol 'q' untuk keluar.")
 
 while True:
     ret, frame = cap.read()
