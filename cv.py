@@ -2,7 +2,7 @@ import cv2
 from ultralytics import YOLO
 
 # Nanti ubah ekstensi ini menjadi .engine setelah berhasil dikonversi
-model = YOLO("runs/detect/train/weights/best.pt")
+model = YOLO("runs/detect/train/weights/best.engine", task="detect")
 
 # Setup Computer Vision (Kamera)
 cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
@@ -27,7 +27,7 @@ while True:
         print("Error: Gagal mengambil frame gambar dari kamera.")
         break
 
-    # Jalankan YOLO pada frame yang sedang aktif
+    # Yolo pada frame aktif
     results = model.predict(source=frame, show=False, verbose=False)
 
 
@@ -40,13 +40,13 @@ while True:
 
             #FSM nya kaya gni
             if class_name == classcon[0]: 
-                print("Deteksi: BUZZER MENYALA " + {classcon[0]})
+                print("Deteksi: BUZZER MENYALA " + classcon[0])
             elif class_name == classcon[1]: 
-                print("Deteksi: BUZZER MENYALA " + {classcon[1]})
+                print("Deteksi: BUZZER MENYALA " + classcon[1])
             elif class_name == classcon[2]: 
-                print("Deteksi: BUZZER MENYALA " + {classcon[2]})
+                print("Deteksi: BUZZER MENYALA " + classcon[2])
             elif class_name == classcon[3]: 
-                print("Deteksi: BUZZER MENYALA " + {classcon[3]})
+                print("Deteksi: BUZZER MENYALA " + classcon[3])
 
     annotated_frame = results[0].plot()
 

@@ -21,7 +21,7 @@ import time
 #     io.output(ledp, io.LOW)
 #     io.cleanup()
 
-buzp = 15
+buzp = 7
 
 io.setmode(io.BOARD)
 
@@ -29,9 +29,8 @@ io.setup(buzp, io.OUT, initial=io.LOW)
 
 def beep():
       io.output(buzp, io.HIGH)
-      time.sleep(0.0005)
+      time.sleep(1) # Coba ubah angka ini untuk mengubah nada
       io.output(buzp, io.LOW)
-      time.sleep(0.0005)
      
 
 try:
