@@ -13,10 +13,8 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 
 classcon = ['no head cap', 'no mark', 'lab coat', 'no goggle']
 
-# --- VARIABEL FRAME SKIPPING ---
 frame_count = 0
 skip_interval = 3 
-# -------------------------------
 
 while True:
     ret, frame = cap.read()
