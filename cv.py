@@ -48,13 +48,13 @@ while True:
             elif class_name == classcon[3]: 
                 print("Deteksi: BUZZER MENYALA " + classcon[3])
 
-    annotated_frame = results[0].plot()
+#     annotated_frame = results[0].plot()
 
-    cv2.imshow("Deteksi Atribut YOLO", annotated_frame)
+#     cv2.imshow("Deteksi Atribut YOLO", annotated_frame)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+#     if cv2.waitKey(1) & 0xFF == ord('q'):
+#         break
 
-# Bersihkan memori setelah selesai
-cap.release()
-cv2.destroyAllWindows()
+# # Bersihkan memori setelah selesai
+# cap.release()
+# cv2.destroyAllWindows()
