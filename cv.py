@@ -18,10 +18,7 @@ while True:
     
     results = model.predict(source=frame, show=False, verbose=False)
     
-<<<<<<< HEAD
-=======
     # 1. OPTIMASI: Gambar Bounding Box secara Manual tes
->>>>>>> 038cb8e4d10824999b7b9a1e712ce342d3a54ff7
     for box in results[0].boxes:
         class_name = results[0].names[int(box.cls[0])]
         if class_name in classcon: 
