@@ -97,9 +97,9 @@ class MOCAEngine:
             else:
                 return "#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses", waktu
                 
-        return "#EDCE23", "Menunggu", "Menganalisis sistem...", waktu
+        return "#2B83DB", "Menunggu", "Menganalisis sistem...", waktu
 
-def get_detections(self, frame):
+    def get_detections(self, frame):
         """Eksekusi YOLO, filter ID aktif, dan gambar label secara manual"""
         # Eksekusi prediksi mentah
         results = self.model.predict(source=frame, show=False, verbose=False)
