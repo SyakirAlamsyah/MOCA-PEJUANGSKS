@@ -85,7 +85,6 @@ class MOCAEngine:
         
         # 1. UPDATE MEMORI WAJAH 
         if len(recognized_names) > 0:
-            # Jika ini wajah baru, mulai fase sapaan
             if self.active_name != recognized_names[0]:
                 self.active_name = recognized_names[0]
                 self.fsm_stage = 1 
@@ -93,7 +92,6 @@ class MOCAEngine:
                 
             self.last_seen_time = current_time
 
-        # Toleransi wajah hilang 4 detik agar tidak berkedip saat menoleh
         wajah_hilang = (current_time - self.last_seen_time) > 4
 
         # 2. RESET ALAMI JIKA KAMERA KOSONG
@@ -106,7 +104,6 @@ class MOCAEngine:
         nama = self.active_name
         is_member = nama != "Orang Asing"
 
-        # Hitung Ekstraksi APD
         active_pos_labels = [self.model.names[i] for i in self.active_positive_ids]
         active_neg_labels = [self.model.names[i] for i in self.active_negative_ids]
         
@@ -120,33 +117,35 @@ class MOCAEngine:
 
         # --- FASE 1: SAPAAN (Ditahan 2.5 Detik untuk UI Dashboard) ---
         if self.fsm_stage == 1:
-            # Tahan status di layar selama 2.5 detik
             if current_time - self.stage_timer_start < 2.5:
                 pesan = f"Terdeteksi anggota lab: {nama}. Siapkan APD anda" if is_member else "Terdeteksi bukan anggota. Siapkan APD anda"
                 warna = "#006C49" if is_member else "#EDCE23"
                 status_title = "Dikenali" if is_member else "Peringatan"
                 return warna, status_title, pesan, waktu
             else:
-                # Waktu sapaan habis, lanjut ke Evaluasi APD
                 self.fsm_stage = 2
                 self.last_apd_combination = current_apd_combination
-                self.stage_timer_start = current_time # Mulai timer 10s
+                self.stage_timer_start = current_time 
 
         # --- FASE 2: EVALUASI APD & TIMER 10 DETIK ---
         if self.fsm_stage == 2:
-            # Reset timer 10 detik jika pengguna menambah/mengurangi APD
             if current_apd_combination != self.last_apd_combination:
                 self.last_apd_combination = current_apd_combination
                 self.stage_timer_start = current_time
             
             sisa_waktu = 10 - int(current_time - self.stage_timer_start)
 
-            # 1. Jika APD Lengkap -> Akses Diterima
+            # 1. Jika APD Lengkap -> Akses Diterima & Jeda 10 Detik
             if apd_terdeteksi == total_wajib and total_wajib > 0 and is_member:
+                status_pesan = f"Atribut lengkap, {nama} dapat akses"
+                
+                # --- TAMBAHAN BARU: Delay 10 Detik ---
+                time.sleep(10)
+                
                 self.fsm_stage = 0 
                 self.active_name = None 
-                self.last_seen_time = 0 # Bersihkan memori untuk orang berikutnya
-                return "#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses", waktu
+                self.last_seen_time = 0 
+                return "#006C49", "Akses Diterima", status_pesan, waktu
                 
             # 2. Jika Melanggar/Tidak Lengkap -> Tampilkan Hitung Mundur
             if total_negatif > 0 and pelanggaran_terdeteksi == total_negatif:
