@@ -5,7 +5,7 @@ from ultralytics import YOLO
 class MOCAEngine:
     def __init__(self):
         # Inisialisasi model YOLO aktif
-        self.model = YOLO("runs/detect/train/weights/best.engine", task="detect")
+        self.model = YOLO("models/model.engine", task="detect")
         self.classcon = ['no head cap', 'no mark', 'lab coat', 'no goggle']
 
     def process_fsm(self, detected_classes):
