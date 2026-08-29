@@ -6,7 +6,7 @@ known_encodings = []
 known_names = []
 
 # Ganti dengan nama file fotomu
-foto_anggota = {"Syakir": "photos/syakir.jpeg", "Rouuf": "photos/rouuf.jpeg", "Bryan": "photos/bryan.jpeg"}
+foto_anggota = {"Syakir": "photos/syakir.jpeg"}
 
 for nama, file_foto in foto_anggota.items():
     if os.path.exists(file_foto):

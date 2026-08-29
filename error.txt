@@ -1,6 +1,0 @@
-Error saat run script YOLO:
-
-cv2.imshow("Deteksi Atribut YOLO", annotated_frame)
-cv2.error: OpenCV(5.0.0) /io/opencv/modules/highgui/src/window.cpp:1215: error: (-2:Unspecified error) The function is not implemented. Rebuild the library with Windows, GTK+ 2.x or Cocoa support. If you are on Ubuntu or Debian, install libgtk2.0-dev and pkg-config, then re-run cmake or configure script in function 'showImageImpl'
-
-
