@@ -24,10 +24,10 @@ class MOCAEngine:
         self.active_name = None
         self.last_seen_time = 0
         
-        # Memori Logika Baru
-        self.fsm_stage = 0                # 0 = Tunggu APD, 1 = Evaluasi Timer 10s
-        self.last_apd_combination = None  # Melacak perubahan APD
-        self.apd_timer_start = 0          # Waktu mulai timer 10s
+        # Memori FSM 3 Fase
+        self.fsm_stage = 0                # 0 = Kosong, 1 = Sapaan, 2 = Timer 10s
+        self.last_apd_combination = None  
+        self.stage_timer_start = 0        # Timer universal
 
     def check_attendance(self, frame):
         if date.today() != self.current_date:
@@ -83,14 +83,20 @@ class MOCAEngine:
         waktu = datetime.now().strftime("%H:%M")
         current_time = time.time()
         
-        # 1. UPDATE MEMORI WAJAH (Toleransi 4 Detik agar tidak berkedip)
+        # 1. UPDATE MEMORI WAJAH 
         if len(recognized_names) > 0:
-            self.active_name = recognized_names[0]
+            # Jika ini wajah baru, mulai fase sapaan
+            if self.active_name != recognized_names[0]:
+                self.active_name = recognized_names[0]
+                self.fsm_stage = 1 
+                self.stage_timer_start = current_time
+                
             self.last_seen_time = current_time
 
+        # Toleransi wajah hilang 4 detik agar tidak berkedip saat menoleh
         wajah_hilang = (current_time - self.last_seen_time) > 4
 
-        # 2. RESET ALAMI JIKA KOSONG
+        # 2. RESET ALAMI JIKA KAMERA KOSONG
         if wajah_hilang:
             self.active_name = None
             self.fsm_stage = 0
@@ -110,53 +116,52 @@ class MOCAEngine:
         apd_terdeteksi = sum([1 for apd in active_pos_labels if apd in detected_classes])
         pelanggaran_terdeteksi = sum([1 for neg in active_neg_labels if neg in detected_classes])
         
-        # Kombinasi APD Saat Ini (Untuk perbandingan perubahan)
         current_apd_combination = (apd_terdeteksi, pelanggaran_terdeteksi)
 
-        # --- FASE 1: WAJAH TERDETEKSI (Tunggu sampai ada APD muncul) ---
-        if self.fsm_stage == 0:
-            if apd_terdeteksi == 0 and pelanggaran_terdeteksi == 0:
+        # --- FASE 1: SAPAAN (Ditahan 2.5 Detik untuk UI Dashboard) ---
+        if self.fsm_stage == 1:
+            # Tahan status di layar selama 2.5 detik
+            if current_time - self.stage_timer_start < 2.5:
                 pesan = f"Terdeteksi anggota lab: {nama}. Siapkan APD anda" if is_member else "Terdeteksi bukan anggota. Siapkan APD anda"
                 warna = "#006C49" if is_member else "#EDCE23"
                 status_title = "Dikenali" if is_member else "Peringatan"
                 return warna, status_title, pesan, waktu
             else:
-                # Lompat ke Fase 2 karena kamera menangkap keberadaan atribut
-                self.fsm_stage = 1
+                # Waktu sapaan habis, lanjut ke Evaluasi APD
+                self.fsm_stage = 2
                 self.last_apd_combination = current_apd_combination
-                self.apd_timer_start = current_time
+                self.stage_timer_start = current_time # Mulai timer 10s
 
         # --- FASE 2: EVALUASI APD & TIMER 10 DETIK ---
-        if self.fsm_stage == 1:
-            # Reset timer 10 detik jika pengguna menambah/mengurangi APD di tengah jalan
+        if self.fsm_stage == 2:
+            # Reset timer 10 detik jika pengguna menambah/mengurangi APD
             if current_apd_combination != self.last_apd_combination:
                 self.last_apd_combination = current_apd_combination
-                self.apd_timer_start = current_time
+                self.stage_timer_start = current_time
             
-            sisa_waktu = 10 - int(current_time - self.apd_timer_start)
+            sisa_waktu = 10 - int(current_time - self.stage_timer_start)
 
-            # Kondisi Mutlak (APD Lengkap & Member) -> Akses Diterima & Langsung Reset
+            # 1. Jika APD Lengkap -> Akses Diterima
             if apd_terdeteksi == total_wajib and total_wajib > 0 and is_member:
                 self.fsm_stage = 0 
                 self.active_name = None 
+                self.last_seen_time = 0 # Bersihkan memori untuk orang berikutnya
                 return "#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses", waktu
                 
-            # Kondisi Pelanggaran/Tidak Lengkap (Hitung Mundur Berjalan)
+            # 2. Jika Melanggar/Tidak Lengkap -> Tampilkan Hitung Mundur
             if total_negatif > 0 and pelanggaran_terdeteksi == total_negatif:
                 status = ("#CF2C30", "Akses Ditolak", f"Tidak menggunakan APD ({sisa_waktu}s)")
             elif apd_terdeteksi == total_wajib and total_wajib > 0 and not is_member:
                 status = ("#EDCE23", "Peringatan", f"Seseorang minta akses lab, perlu izin ({sisa_waktu}s)")
             else:
-                if not is_member:
-                    status = ("#EDCE23", "Peringatan", f"Atribut tidak lengkap ({sisa_waktu}s)")
-                else:
-                    status = ("#EDCE23", "Peringatan", f"Atributnya tidak lengkap, {nama} perlu izin ({sisa_waktu}s)")
+                pesan_peringatan = f"Atributnya tidak lengkap, {nama} perlu izin ({sisa_waktu}s)" if is_member else f"Atribut tidak lengkap ({sisa_waktu}s)"
+                status = ("#EDCE23", "Peringatan", pesan_peringatan)
 
-            # Jika waktu 10 detik habis tanpa ada perubahan APD sama sekali
+            # 3. Jika timer 10 detik habis tanpa kelengkapan APD -> Reset
             if sisa_waktu <= 0:
-                self.fsm_stage = 0         # Kembalikan ke Fase 1
-                self.active_name = None    # Hapus memori wajah
-                self.last_seen_time = 0    # Paksa sistem memuat ulang dari pembacaan wajah
+                self.fsm_stage = 0         
+                self.active_name = None    
+                self.last_seen_time = 0    
                 return "#EDCE23", "Menunggu", "Waktu habis, memuat ulang...", waktu
 
             return status[0], status[1], status[2], waktu
