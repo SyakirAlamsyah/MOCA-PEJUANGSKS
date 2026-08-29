@@ -10,9 +10,8 @@ class MOCAEngine:
         self.model = YOLO("models/model.engine", task="detect")
         
         # 1. PISAHKAN PARAMETER ID KELAS 
-        self.person_id = [0]
-        self.active_positive_ids = [1, 5] 
-        self.active_negative_ids = [9, 6] 
+        self.active_positive_ids = [1, 3] 
+        self.active_negative_ids = [4, 6] 
         
         with open("encodings.pkl", "rb") as f:
             data = pickle.load(f)
@@ -81,39 +80,32 @@ class MOCAEngine:
         waktu = datetime.now().strftime("%H:%M")
         current_time = time.time()
         
-        # PERBAIKAN STABILITAS: Deteksi kehadiran fisik (person) via YOLO
-        ada_orang = any(cls.lower() == 'person' for cls in detected_classes)
-        nama = recognized_names[0] if recognized_names else None
+        # MODIFIKASI DEMO: Kehadiran manusia murni dipicu oleh deteksi wajah
+        ada_orang = len(recognized_names) > 0
+        nama = recognized_names[0] if ada_orang else None
 
-        # Jika kamera benar-benar kosong (tidak ada wajah & YOLO tidak deteksi orang)
-        if not ada_orang and not nama:
+        # Jika kamera tidak menangkap wajah sama sekali
+        if not ada_orang:
             self.is_checking_apd = False
             self.fail_count = 0
             self.last_face_time = 0 # Reset waktu mundur
-            return "#EDCE23", "Menunggu", "Tidak ada orang terdeteksi", waktu
-
-        # Jika YOLO melihat orang tapi Face Recog gagal, tahan sebagai Orang Asing agar timer tidak mereset
-        if not nama:
-            nama = "Orang Asing"
+            return "#EDCE23", "Menunggu", "Tidak ada wajah terdeteksi", waktu
             
         is_member = nama != "Orang Asing"
 
         # --- FASE 1: VERIFIKASI WAJAH & JEDA 10 DETIK ---
         if not self.is_checking_apd:
-            # Mulai timer hanya saat wajah/orang pertama kali masuk frame
             if self.last_face_time == 0:
                 self.last_face_time = current_time
             
             sisa_waktu = int(self.tolerance_delay - (current_time - self.last_face_time))
             
-            # Selama timer belum 0, tampilkan pesan peringatan persiapan
             if sisa_waktu > 0:
                 if is_member:
                     return "#006C49", "Dikenali", f"Terdeteksi anggota lab: {nama}. Siapkan APD anda ({sisa_waktu}s)", waktu
                 else:
                     return "#EDCE23", "Peringatan", f"Terdeteksi bukan anggota. Siapkan APD anda ({sisa_waktu}s)", waktu
             
-            # Waktu habis, kunci fase ini untuk maju ke Fase Cek APD
             self.is_checking_apd = True
 
         # --- FASE 2: EVALUASI POSITIF VS NEGATIF ---
