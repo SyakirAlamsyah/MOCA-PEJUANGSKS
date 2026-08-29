@@ -7,10 +7,10 @@ from ultralytics import YOLO
 
 class MOCAEngine:
     def __init__(self):
-        self.model = YOLO("models/model.engine", task="detect")
+        self.model = YOLO("models/model3.engine", task="detect")
         
-        self.active_positive_ids = [1, 5] 
-        self.active_negative_ids = [6, 9] 
+        self.active_positive_ids = [1, 3] 
+        self.active_negative_ids = [4, 6] 
         
         with open("encodings.pkl", "rb") as f:
             data = pickle.load(f)
@@ -20,14 +20,14 @@ class MOCAEngine:
         self.present_today = set()
         self.current_date = date.today()
         
-        self.last_face_time = 0      
-        self.tolerance_delay = 10     
-        self.is_checking_apd = False 
-        self.fail_count = 0
-        
-        # TAMBAHAN BARU: Memori Penahan Wajah
+        # --- MEMORI FSM BARU ---
         self.active_name = None
         self.last_seen_time = 0
+        
+        # Pelacak Perubahan APD
+        self.last_apd_state = tuple()
+        self.last_apd_change_time = 0
+        self.tolerance_delay = 10
 
     def check_attendance(self, frame):
         if date.today() != self.current_date:
@@ -83,59 +83,70 @@ class MOCAEngine:
         waktu = datetime.now().strftime("%H:%M")
         current_time = time.time()
         
-        # 1. UPDATE MEMORI WAJAH
+        # 1. UPDATE MEMORI WAJAH & RESET TIMER JIKA ORANG BARU
         if len(recognized_names) > 0:
-            self.active_name = recognized_names[0]
+            nama_terdeteksi = recognized_names[0]
+            if self.active_name != nama_terdeteksi:
+                # Wajah baru terkunci! Mulai hitung mundur 10 detik dari sekarang
+                self.active_name = nama_terdeteksi
+                self.last_apd_change_time = current_time
+                self.last_apd_state = tuple()
             self.last_seen_time = current_time
 
         # 2. CEK GRACE PERIOD (Toleransi jika wajah hilang sesaat)
         wajah_hilang = (current_time - self.last_seen_time) > 4
 
-        if wajah_hilang:
+        # Jika wajah benar-benar pergi ATAU belum ada wajah sama sekali
+        if wajah_hilang or not self.active_name:
             self.active_name = None
-            self.is_checking_apd = False
-            self.last_face_time = 0 
+            self.last_apd_change_time = 0
             return "#EDCE23", "Menunggu", "Tidak ada wajah terdeteksi", waktu
             
-        # Gunakan data identitas dari memori stabil
         nama = self.active_name
         is_member = nama != "Orang Asing"
 
-        # --- FASE 1: VERIFIKASI WAJAH & JEDA 10 DETIK ---
-        if not self.is_checking_apd:
-            if self.last_face_time == 0:
-                self.last_face_time = current_time
-            
-            sisa_waktu = int(self.tolerance_delay - (current_time - self.last_face_time))
-            
-            if sisa_waktu > 0:
-                pesan = f"Terdeteksi anggota lab: {nama}. Siapkan APD anda ({sisa_waktu}s)" if is_member else f"Terdeteksi bukan anggota. Siapkan APD anda ({sisa_waktu}s)"
-                warna = "#006C49" if is_member else "#EDCE23"
-                status_title = "Dikenali" if is_member else "Peringatan"
-                return warna, status_title, pesan, waktu
-            
-            self.is_checking_apd = True
-
-        # --- FASE 2: EVALUASI POSITIF VS NEGATIF (TERKUNCI) ---
+        # 3. EVALUASI APD (LANGSUNG DIEKSEKUSI)
         active_pos_labels = [self.model.names[i] for i in self.active_positive_ids]
         active_neg_labels = [self.model.names[i] for i in self.active_negative_ids]
         
         total_wajib = len(active_pos_labels)
         total_negatif = len(active_neg_labels)
         
-        apd_terdeteksi = sum([1 for apd in active_pos_labels if apd in detected_classes])
-        pelanggaran_terdeteksi = sum([1 for neg in active_neg_labels if neg in detected_classes])
+        # Pilah APD yang terdeteksi
+        apd_positif_terdeteksi = [apd for apd in active_pos_labels if apd in detected_classes]
+        apd_negatif_terdeteksi = [neg for neg in active_neg_labels if neg in detected_classes]
+        
+        # 4. CEK PERUBAHAN APD UNTUK MERESET WAKTU
+        # Jadikan tuple agar bisa dibandingkan (contoh: dari pakai kacamata lalu pakai jas lab)
+        current_apd_state = tuple(sorted(apd_positif_terdeteksi + apd_negatif_terdeteksi))
+        
+        if current_apd_state != self.last_apd_state:
+            # Jika ada APD yang dipakai/dilepas, beri tambahan waktu 10 detik lagi
+            self.last_apd_state = current_apd_state
+            self.last_apd_change_time = current_time
+            
+        # 5. CEK TIMEOUT (Jika 10 detik diam tanpa progres APD)
+        if (current_time - self.last_apd_change_time) > self.tolerance_delay:
+            self.active_name = None
+            self.last_apd_state = tuple()
+            self.last_apd_change_time = 0
+            return "#EDCE23", "Menunggu", "Waktu habis, silakan ulangi deteksi wajah", waktu
 
-        if total_negatif > 0 and pelanggaran_terdeteksi == total_negatif:
+        # 6. PENENTUAN STATUS FSM
+        jumlah_pos = len(apd_positif_terdeteksi)
+        jumlah_neg = len(apd_negatif_terdeteksi)
+
+        if total_negatif > 0 and jumlah_neg == total_negatif:
             status = ("#CF2C30", "Akses Ditolak", "Tidak menggunakan APD")
             
-        elif apd_terdeteksi == total_wajib and total_wajib > 0:
+        elif jumlah_pos == total_wajib and total_wajib > 0:
             if not is_member:
                 status = ("#EDCE23", "Peringatan", "Seseorang minta akses lab, perlu izin")
             else:
-                self.is_checking_apd = False 
-                self.last_face_time = 0 
-                self.active_name = None # Reset memori agar siap untuk orang berikutnya
+                # Lengkap! Reset sistem agar siap menerima orang berikutnya
+                self.active_name = None
+                self.last_apd_state = tuple()
+                self.last_apd_change_time = 0
                 return "#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses", waktu
                 
         else:
