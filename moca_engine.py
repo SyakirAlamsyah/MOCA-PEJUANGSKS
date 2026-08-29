@@ -6,7 +6,7 @@ from ultralytics import YOLO
 
 class MOCAEngine:
     def __init__(self):
-        self.model = YOLO("runs/detect/train/weights/best.engine", task="detect")
+        self.model = YOLO("models/model.engine", task="detect")
         
         # Masukkan ID kelas yang ingin diaktifkan
         self.active_class_ids = [1, 2, 4, 5, 6, 7, 9] 
