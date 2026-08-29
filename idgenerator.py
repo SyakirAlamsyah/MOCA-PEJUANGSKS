@@ -3,7 +3,6 @@ from ultralytics import YOLO
 model = ""
 opsi = int(input("Pilih model apa?(1/2/3/4)"))
 
-
 if opsi == 1:
     model == "model"
 elif opsi == 2:
@@ -15,5 +14,5 @@ elif opsi == 4:
 else:
     print(f"{opsi} tidak valid")
 
-model = YOLO(model=f"models/{model}.engine", task="detect")
-print(model.names)
+models = YOLO(f"models/{model}.engine", task="detect")
+print(models.names)
