@@ -7,7 +7,7 @@ from ultralytics import YOLO
 
 class MOCAEngine:
     def __init__(self):
-        self.model = YOLO("models/model.engine", task="detect")
+        self.model = YOLO("models/model3.engine", task="detect")
         
         # 1. PISAHKAN PARAMETER ID KELAS (Sesuaikan dengan ID model milikmu)
         self.person_id = [0]
