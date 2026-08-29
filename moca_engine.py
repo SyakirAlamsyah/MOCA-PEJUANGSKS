@@ -7,10 +7,10 @@ from ultralytics import YOLO
 
 class MOCAEngine:
     def __init__(self):
-        self.model = YOLO("models/model3.engine", task="detect")
+        self.model = YOLO("models/model.engine", task="detect")
         
-        self.active_positive_ids = [1, 3] 
-        self.active_negative_ids = [4, 6] 
+        self.active_positive_ids = [1, 5] 
+        self.active_negative_ids = [6, 9] 
         
         with open("encodings.pkl", "rb") as f:
             data = pickle.load(f)
