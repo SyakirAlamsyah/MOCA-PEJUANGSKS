@@ -78,6 +78,8 @@ while True:
         annotated_frame, detected_classes = engine.get_detections(frame)
         color, title, desc, waktu = engine.process_fsm(detected_classes, current_names)
         
+        engine.update_led(color)
+        
         # Mencegah duplikasi log beruntun
         if title != st.session_state.last_status:
             st.session_state.logs.insert(0, f"""

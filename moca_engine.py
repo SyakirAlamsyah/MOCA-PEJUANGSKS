@@ -4,6 +4,8 @@ import time
 from datetime import datetime, date
 import face_recognition
 from ultralytics import YOLO
+import Jetson.GPIO as GPIO
+import atexit
 
 class MOCAEngine:
     def __init__(self):
@@ -25,9 +27,39 @@ class MOCAEngine:
         self.last_seen_time = 0
         
         # Memori FSM 3 Fase
-        self.fsm_stage = 0                # 0 = Kosong, 1 = Sapaan, 2 = Timer 10s
+        self.fsm_stage = 0
         self.last_apd_combination = None  
-        self.stage_timer_start = 0        # Timer universal
+        self.stage_timer_start = 0
+
+        self.PIN_RED = 11    
+        self.PIN_YELLOW = 13 
+        self.PIN_GREEN = 15  
+        
+        GPIO.setwarnings(False)
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setup([self.PIN_RED, self.PIN_YELLOW, self.PIN_GREEN], GPIO.OUT, initial=GPIO.LOW)
+        
+        # Mendaftarkan fungsi bersih-bersih agar LED mati saat program dihentikan
+        atexit.register(self.cleanup_gpio)
+
+    def cleanup_gpio(self):
+        """Mematikan semua pin GPIO saat program ditutup"""
+        GPIO.cleanup()
+
+    def update_led(self, hex_color):
+        """Menyalakan LED sesuai dengan warna status FSM"""
+        # Matikan semua LED terlebih dahulu agar tidak ada warna ganda
+        GPIO.output(self.PIN_RED, GPIO.LOW)
+        GPIO.output(self.PIN_YELLOW, GPIO.LOW)
+        GPIO.output(self.PIN_GREEN, GPIO.LOW)
+        
+        # Nyalakan LED yang sesuai
+        if hex_color == "#CF2C30":    # Merah (Akses Ditolak / Bahaya)
+            GPIO.output(self.PIN_RED, GPIO.HIGH)
+        elif hex_color == "#EDCE23":  # Kuning (Menunggu / Peringatan / Cooldown)
+            GPIO.output(self.PIN_YELLOW, GPIO.HIGH)
+        elif hex_color == "#006C49":  # Hijau (Akses Diterima / Aman)
+            GPIO.output(self.PIN_GREEN, GPIO.HIGH)
 
     def check_attendance(self, frame):
         if date.today() != self.current_date:
