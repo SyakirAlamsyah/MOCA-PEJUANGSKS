@@ -56,7 +56,9 @@ class MOCAEngine:
             source=frame, 
             classes=self.active_class_ids, 
             show=False, 
-            verbose=False
+            verbose=False,
+            show_labels=True,
+            show_conf=True
         )
         
         detected_classes = []
