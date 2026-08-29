@@ -6,7 +6,7 @@ from ultralytics import YOLO
 
 class MOCAEngine:
     def __init__(self):
-        self.model = YOLO("runs/detect/train/weights/best.engine", task="detect")
+        self.model = YOLO("models/model.engine", task="detect")
         
         # Load database wajah dari file .pkl
         with open("encodings.pkl", "rb") as f:
