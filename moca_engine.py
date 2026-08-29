@@ -83,6 +83,18 @@ class MOCAEngine:
         waktu = datetime.now().strftime("%H:%M")
         current_time = time.time()
         
+        # --- FASE 3: COOLDOWN (Pengganti time.sleep) ---
+        # Menahan tampilan status sukses/gagal selama beberapa detik TANPA menghentikan kamera
+        if hasattr(self, 'fsm_stage') and self.fsm_stage == 3:
+            if current_time - self.stage_timer_start < 5: # Jeda 5 detik
+                return self.last_status_warna, self.last_status_title, self.last_status_pesan, waktu
+            else:
+                # Reset sistem setelah masa cooldown habis
+                self.fsm_stage = 0 
+                self.active_name = None 
+                self.last_seen_time = 0 
+                return "#EDCE23", "Menunggu", "Memuat ulang sistem...", waktu
+
         # 1. UPDATE MEMORI WAJAH 
         if len(recognized_names) > 0:
             if self.active_name != recognized_names[0]:
@@ -94,7 +106,7 @@ class MOCAEngine:
 
         wajah_hilang = (current_time - self.last_seen_time) > 4
 
-        # 2. STATUS MENUNGGU (Tanpa Delay, Responsif)
+        # 2. STATUS MENUNGGU
         if wajah_hilang:
             self.active_name = None
             self.fsm_stage = 0
@@ -115,15 +127,12 @@ class MOCAEngine:
         
         current_apd_combination = (apd_terdeteksi, pelanggaran_terdeteksi)
 
-        # --- FASE 1: SAPAAN (Dengan Delay 5 Detik agar Smooth) ---
+        # --- FASE 1: SAPAAN ---
         if self.fsm_stage == 1:
             if current_time - self.stage_timer_start < 2.5:
                 pesan = f"Terdeteksi anggota lab: {nama}. Siapkan APD anda" if is_member else "Terdeteksi bukan anggota. Siapkan APD anda"
                 warna = "#006C49" if is_member else "#EDCE23"
                 status_title = "Dikenali" if is_member else "Peringatan"
-                
-                # Delay 5 detik khusus untuk status aktif selain Menunggu
-                time.sleep(5)
                 return warna, status_title, pesan, waktu
             else:
                 self.fsm_stage = 2
@@ -138,17 +147,12 @@ class MOCAEngine:
             
             sisa_waktu = 10 - int(current_time - self.stage_timer_start)
 
-            # 1. Jika APD Lengkap -> Akses Diterima & Jeda Total
+            # 1. Jika APD Lengkap -> Akses Diterima & Masuk Cooldown
             if apd_terdeteksi == total_wajib and total_wajib > 0 and is_member:
-                status_pesan = f"Atribut lengkap, {nama} dapat akses"
-                
-                time.sleep(5) # Delay smooth penutup status
-                time.sleep(10) # Jeda waktu sukses sebelum reset
-                
-                self.fsm_stage = 0 
-                self.active_name = None 
-                self.last_seen_time = 0 
-                return "#006C49", "Akses Diterima", status_pesan, waktu
+                self.last_status_warna, self.last_status_title, self.last_status_pesan = ("#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses")
+                self.fsm_stage = 3 # Pindah ke fase cooldown
+                self.stage_timer_start = current_time
+                return self.last_status_warna, self.last_status_title, self.last_status_pesan, waktu
                 
             # 2. Jika Melanggar/Tidak Lengkap -> Tampilkan Hitung Mundur
             if total_negatif > 0 and pelanggaran_terdeteksi == total_negatif:
@@ -159,14 +163,11 @@ class MOCAEngine:
                 pesan_peringatan = f"Atributnya tidak lengkap, {nama} perlu izin ({sisa_waktu}s)" if is_member else f"Atribut tidak lengkap ({sisa_waktu}s)"
                 status_warna, status_title, status_pesan = ("#EDCE23", "Peringatan", pesan_peringatan)
 
-            # 3. Jika timer 10 detik habis tanpa kelengkapan APD -> Reset
+            # 3. Jika timer habis -> Masuk Cooldown lalu Reset
             if sisa_waktu <= 0:
-                self.fsm_stage = 0         
-                self.active_name = None    
-                self.last_seen_time = 0    
-                time.sleep(5)
-                return "#EDCE23", "Menunggu", "Waktu habis, memuat ulang...", waktu
+                self.last_status_warna, self.last_status_title, self.last_status_pesan = ("#EDCE23", "Waktu Habis", "Waktu evaluasi habis, memuat ulang...")
+                self.fsm_stage = 3 # Pindah ke fase cooldown
+                self.stage_timer_start = current_time
+                return self.last_status_warna, self.last_status_title, self.last_status_pesan, waktu
 
-            # Berikan delay 5 detik agar pergantian status evaluasi tidak patah-patah
-            time.sleep(5)
             return status_warna, status_title, status_pesan, waktu
