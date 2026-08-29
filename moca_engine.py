@@ -80,15 +80,14 @@ class MOCAEngine:
         waktu = datetime.now().strftime("%H:%M")
         current_time = time.time()
         
-        # MODIFIKASI DEMO: Kehadiran manusia murni dipicu oleh deteksi wajah
+        # Kehadiran manusia dipicu oleh deteksi wajah
         ada_orang = len(recognized_names) > 0
         nama = recognized_names[0] if ada_orang else None
 
-        # Jika kamera tidak menangkap wajah sama sekali
+        # RESET ALAMI: Jika kamera tidak menangkap wajah sama sekali
         if not ada_orang:
             self.is_checking_apd = False
-            self.fail_count = 0
-            self.last_face_time = 0 # Reset waktu mundur
+            self.last_face_time = 0 
             return "#EDCE23", "Menunggu", "Tidak ada wajah terdeteksi", waktu
             
         is_member = nama != "Orang Asing"
@@ -100,15 +99,17 @@ class MOCAEngine:
             
             sisa_waktu = int(self.tolerance_delay - (current_time - self.last_face_time))
             
+            # Tahan di fase ini selama waktu belum habis
             if sisa_waktu > 0:
-                if is_member:
-                    return "#006C49", "Dikenali", f"Terdeteksi anggota lab: {nama}. Siapkan APD anda ({sisa_waktu}s)", waktu
-                else:
-                    return "#EDCE23", "Peringatan", f"Terdeteksi bukan anggota. Siapkan APD anda ({sisa_waktu}s)", waktu
+                pesan = f"Terdeteksi anggota lab: {nama}. Siapkan APD anda ({sisa_waktu}s)" if is_member else f"Terdeteksi bukan anggota. Siapkan APD anda ({sisa_waktu}s)"
+                warna = "#006C49" if is_member else "#EDCE23"
+                status_title = "Dikenali" if is_member else "Peringatan"
+                return warna, status_title, pesan, waktu
             
+            # Waktu habis, maju permanen ke Fase 2
             self.is_checking_apd = True
 
-        # --- FASE 2: EVALUASI POSITIF VS NEGATIF ---
+        # --- FASE 2: EVALUASI POSITIF VS NEGATIF (TERKUNCI) ---
         active_pos_labels = [self.model.names[i] for i in self.active_positive_ids]
         active_neg_labels = [self.model.names[i] for i in self.active_negative_ids]
         
@@ -120,24 +121,23 @@ class MOCAEngine:
 
         if total_negatif > 0 and pelanggaran_terdeteksi == total_negatif:
             status = ("#CF2C30", "Akses Ditolak", "Tidak menggunakan APD")
+            
         elif apd_terdeteksi == total_wajib and total_wajib > 0:
             if not is_member:
                 status = ("#EDCE23", "Peringatan", "Seseorang minta akses lab, perlu izin")
             else:
+                # Berhasil memakai APD lengkap, reset timer untuk orang berikutnya
                 self.is_checking_apd = False 
-                self.last_face_time = 0 # Reset agar orang berikutnya diproses normal
+                self.last_face_time = 0 
                 return "#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses", waktu
+                
         else:
             if not is_member:
                 status = ("#EDCE23", "Peringatan", "Atribut tidak lengkap")
             else:
                 status = ("#EDCE23", "Peringatan", f"Atributnya tidak lengkap, {nama} perlu izin")
 
-        # --- FASE 3: LOOP TOLERANSI BERULANG ---
-        self.fail_count += 1
-        if self.fail_count > 2:
-            self.fail_count = 0
-            self.is_checking_apd = False
-            self.last_face_time = 0 # Paksa sistem mengulang dari deteksi awal
+        # FASE 3 DIHAPUS. Sistem akan terus mengunci evaluasi APD di layar (Akses Ditolak/Peringatan)
+        # sampai pengguna melengkapi APD (Akses Diterima) atau pergi (Kamera Kosong).
             
         return status[0], status[1], status[2], waktu
