@@ -73,10 +73,10 @@ while True:
         st.session_state.current_names, st.session_state.hadir = engine.check_attendance(frame)
         
     # 2. Eksekusi YOLO & FSM (Setiap 3 Frame)
+ # 2. Eksekusi YOLO & FSM (Setiap 3 Frame)
     if frame_count % 3 == 0:
-        results = engine.model.predict(source=frame, show=False, verbose=False)
-        annotated_frame, detected_classes = engine.draw_annotations(frame, results)
         
+        annotated_frame, detected_classes = engine.get_detections(frame)
         color, title, desc, waktu = engine.process_fsm(detected_classes, st.session_state.current_names)
         
         # Mencegah duplikasi log beruntun

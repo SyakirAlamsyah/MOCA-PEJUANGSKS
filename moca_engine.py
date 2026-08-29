@@ -99,11 +99,29 @@ class MOCAEngine:
                 
         return "#EDCE23", "Menunggu", "Menganalisis sistem...", waktu
 
-    def draw_annotations(self, frame, results):
+def get_detections(self, frame):
+        """Eksekusi YOLO, filter ID aktif, dan gambar label secara manual"""
+        # Eksekusi prediksi mentah
+        results = self.model.predict(source=frame, show=False, verbose=False)
         detected_classes = []
+        
         for box in results[0].boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            class_name = results[0].names[int(box.cls[0])]
+            class_id = int(box.cls[0])
+            
+            # GERBANG FILTER: Jika ID objek tidak ada di list aktif, abaikan
+            if class_id not in self.active_class_ids:
+                continue
+                
+            class_name = results[0].names[class_id]
+            confidence = float(box.conf[0]) * 100
             detected_classes.append(class_name)
+            
+            # 1. Gambar Bounding Box
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            
+            # 2. Gambar Teks Label dan Persentase Akurasi
+            label_text = f"{class_name} {confidence:.1f}%"
+            cv2.putText(frame, label_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
         return frame, detected_classes
