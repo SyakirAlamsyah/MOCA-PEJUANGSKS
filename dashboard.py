@@ -11,7 +11,6 @@ if 'logs' not in st.session_state: st.session_state.logs = []
 if 'hadir' not in st.session_state: st.session_state.hadir = 0
 if 'ditolak' not in st.session_state: st.session_state.ditolak = 0
 if 'last_status' not in st.session_state: st.session_state.last_status = None
-if 'current_names' not in st.session_state: st.session_state.current_names = []
 
 # Muat Mesin Utama MOCA
 @st.cache_resource
@@ -60,6 +59,7 @@ cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 320)
 
 frame_count = 0
+current_names = []
 
 # Main Loop Edge Processing
 while True:
@@ -70,14 +70,13 @@ while True:
     
     # 1. Eksekusi Face Recognition (Setiap 30 Frame / ~1 detik)
     if frame_count % 30 == 0:
-        st.session_state.current_names, st.session_state.hadir = engine.check_attendance(frame)
+        current_names, st.session_state.hadir = engine.check_attendance(frame)
         
     # 2. Eksekusi YOLO & FSM (Setiap 3 Frame)
- # 2. Eksekusi YOLO & FSM (Setiap 3 Frame)
     if frame_count % 3 == 0:
         
         annotated_frame, detected_classes = engine.get_detections(frame)
-        color, title, desc, waktu = engine.process_fsm(detected_classes, st.session_state.current_names)
+        color, title, desc, waktu = engine.process_fsm(detected_classes, current_names)
         
         # Mencegah duplikasi log beruntun
         if title != st.session_state.last_status:
