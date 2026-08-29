@@ -15,5 +15,5 @@ elif opsi == 4:
 else:
     print(f"{opsi} tidak valid")
 
-model = YOLO(f"models/{model}.engine", task="detect")
+model = YOLO(model=f"models/{model}.engine", task="detect")
 print(model.names)
