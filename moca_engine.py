@@ -1,17 +1,14 @@
 import cv2
 import pickle
+import time 
 from datetime import datetime, date
 import face_recognition
 from ultralytics import YOLO
-
 class MOCAEngine:
     def __init__(self):
         self.model = YOLO("models/model.engine", task="detect")
-        
-        # Masukkan ID kelas yang ingin diaktifkan
         self.active_class_ids = [1, 2, 4, 5, 6, 7, 9] 
         
-        # Load database wajah 
         with open("encodings.pkl", "rb") as f:
             data = pickle.load(f)
             self.known_encodings = data["encodings"]
@@ -19,6 +16,11 @@ class MOCAEngine:
             
         self.present_today = set()
         self.current_date = date.today()
+        
+        self.last_face_time = 0      
+        self.tolerance_delay = 5     
+        self.is_checking_apd = False 
+        self.fail_count = 0           
 
     def check_attendance(self, frame):
         # Reset otomatis jika berganti hari
@@ -72,32 +74,73 @@ class MOCAEngine:
     
     def process_fsm(self, detected_classes, recognized_names):
         waktu = datetime.now().strftime("%H:%M")
+        current_time = time.time()
         
-        # Evaluasi Kelengkapan APD
+        # Pastikan ada orang di depan kamera
+        nama = recognized_names[0] if recognized_names else None
+        is_member = nama and nama != "Orang Asing"
+
+        # --- LOGIKA KOSONG (IDLE) ---
+        if not nama:
+            self.is_checking_apd = False
+            self.fail_count = 0
+            return "#EDCE23", "Menunggu", "Tidak ada orang terdeteksi", waktu
+
+        # --- FASE 1: VERIFIKASI WAJAH & JEDA TOLERANSI ---
+        if not self.is_checking_apd:
+            # Jika ini wajah baru, mulai perhitungan mundur
+            if current_time - self.last_face_time > self.tolerance_delay:
+                self.last_face_time = current_time
+            
+            # Cek apakah jeda 5 detik sudah terlewati
+            if current_time - self.last_face_time < self.tolerance_delay:
+                sisa_waktu = int(self.tolerance_delay - (current_time - self.last_face_time))
+                if is_member:
+                    return "#006C49", "Dikenali", f"Terdeteksi anggota lab: {nama}. Siapkan APD anda ({sisa_waktu}s)", waktu
+                else:
+                    return "#EDCE23", "Peringatan", f"Terdeteksi bukan anggota. Siapkan APD anda ({sisa_waktu}s)", waktu
+            
+            # Jeda selesai, aktifkan fase cek APD
+            self.is_checking_apd = True
+
+        # --- FASE 2: EVALUASI APD MUTLAK (Sesuai Rincian Baru) ---
         has_labcoat = 'lab coat' in detected_classes
         has_goggles = 'goggle' in detected_classes
-        
         jumlah_apd = sum([has_labcoat, has_goggles])
-        is_member = any(name != "Orang Asing" for name in recognized_names)
-        nama = recognized_names[0] if recognized_names else "Orang Asing"
 
-        # Aturan FSM Berdasarkan Rincian Baru
+        # Aturan 1: Ditolak Mutlak (Tidak ada APD sama sekali)
         if jumlah_apd == 0:
-            return "#CF2C30", "Akses Ditolak", "Tidak menggunakan APD", waktu
-            
+            status = ("#CF2C30", "Akses Ditolak", "Tidak menggunakan APD")
+        
+        # Aturan 2: Peringatan (APD Tidak Lengkap)
         elif jumlah_apd == 1:
             if not is_member:
-                return "#EDCE23", "Peringatan", "Atribut Tidak lengkap", waktu
+                status = ("#EDCE23", "Peringatan", "Atribut tidak lengkap")
             else:
-                return "#EDCE23", "Peringatan", f"Atributnya tidak lengkap, {nama} perlu izin", waktu
+                status = ("#EDCE23", "Peringatan", f"Atributnya tidak lengkap, {nama} perlu izin")
                 
-        elif jumlah_apd == 2:
-            if not is_member:
-                return "#EDCE23", "Peringatan", "Seseorang minta akses lab, perlu izin", waktu
-            else:
-                return "#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses", waktu
-                
-        return "#2B83DB", "Menunggu", "Menganalisis sistem...", waktu
+        # Aturan 3: Peringatan Orang Asing (APD Lengkap tapi bukan anggota)
+        elif jumlah_apd == 2 and not is_member:
+            status = ("#EDCE23", "Peringatan", "Seseorang minta akses lab, perlu izin")
+            
+        # Aturan 4: Akses Diterima (APD Lengkap & Anggota)
+        elif jumlah_apd == 2 and is_member:
+            self.is_checking_apd = False # Reset sistem untuk orang berikutnya
+            return "#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses", waktu
+            
+        else:
+             status = ("#EDCE23", "Menunggu", "Menganalisis...")
+
+        # --- FASE 3: LOOP TOLERANSI BERULANG (Pengingat 2 kali) ---
+        # Jika masuk ke blok ini, berarti APD gagal (Status 1, 2, atau 3)
+        self.fail_count += 1
+        
+        # Tunggu 2 siklus peringatan (misal YOLO jalan per 3 frame, berarti ini sekitar 6 frame/1 detik kemudian)
+        if self.fail_count > 2:
+            self.fail_count = 0
+            self.is_checking_apd = False # Kembalikan FSM ke awal (Verifikasi Wajah)
+            
+        return status[0], status[1], status[2], waktu
 
     def get_detections(self, frame):
         """Eksekusi YOLO, filter ID aktif, dan gambar label secara manual"""
