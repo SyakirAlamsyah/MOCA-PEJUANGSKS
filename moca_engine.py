@@ -9,7 +9,6 @@ class MOCAEngine:
     def __init__(self):
         self.model = YOLO("models/model3.engine", task="detect")
         
-        # 1. PISAHKAN PARAMETER ID KELAS 
         self.active_positive_ids = [1, 3] 
         self.active_negative_ids = [4, 6] 
         
@@ -22,9 +21,13 @@ class MOCAEngine:
         self.current_date = date.today()
         
         self.last_face_time = 0      
-        self.tolerance_delay = 10    # DURASI DIPERBARUI: Jeda 10 detik 
+        self.tolerance_delay = 10     
         self.is_checking_apd = False 
         self.fail_count = 0
+        
+        # TAMBAHAN BARU: Memori Penahan Wajah
+        self.active_name = None
+        self.last_seen_time = 0
 
     def check_attendance(self, frame):
         if date.today() != self.current_date:
@@ -80,16 +83,22 @@ class MOCAEngine:
         waktu = datetime.now().strftime("%H:%M")
         current_time = time.time()
         
-        # Kehadiran manusia dipicu oleh deteksi wajah
-        ada_orang = len(recognized_names) > 0
-        nama = recognized_names[0] if ada_orang else None
+        # 1. UPDATE MEMORI WAJAH
+        if len(recognized_names) > 0:
+            self.active_name = recognized_names[0]
+            self.last_seen_time = current_time
 
-        # RESET ALAMI: Jika kamera tidak menangkap wajah sama sekali
-        if not ada_orang:
+        # 2. CEK GRACE PERIOD (Toleransi jika wajah hilang sesaat)
+        wajah_hilang = (current_time - self.last_seen_time) > 4
+
+        if wajah_hilang:
+            self.active_name = None
             self.is_checking_apd = False
             self.last_face_time = 0 
             return "#EDCE23", "Menunggu", "Tidak ada wajah terdeteksi", waktu
             
+        # Gunakan data identitas dari memori stabil
+        nama = self.active_name
         is_member = nama != "Orang Asing"
 
         # --- FASE 1: VERIFIKASI WAJAH & JEDA 10 DETIK ---
@@ -99,14 +108,12 @@ class MOCAEngine:
             
             sisa_waktu = int(self.tolerance_delay - (current_time - self.last_face_time))
             
-            # Tahan di fase ini selama waktu belum habis
             if sisa_waktu > 0:
                 pesan = f"Terdeteksi anggota lab: {nama}. Siapkan APD anda ({sisa_waktu}s)" if is_member else f"Terdeteksi bukan anggota. Siapkan APD anda ({sisa_waktu}s)"
                 warna = "#006C49" if is_member else "#EDCE23"
                 status_title = "Dikenali" if is_member else "Peringatan"
                 return warna, status_title, pesan, waktu
             
-            # Waktu habis, maju permanen ke Fase 2
             self.is_checking_apd = True
 
         # --- FASE 2: EVALUASI POSITIF VS NEGATIF (TERKUNCI) ---
@@ -126,9 +133,9 @@ class MOCAEngine:
             if not is_member:
                 status = ("#EDCE23", "Peringatan", "Seseorang minta akses lab, perlu izin")
             else:
-                # Berhasil memakai APD lengkap, reset timer untuk orang berikutnya
                 self.is_checking_apd = False 
                 self.last_face_time = 0 
+                self.active_name = None # Reset memori agar siap untuk orang berikutnya
                 return "#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses", waktu
                 
         else:
@@ -136,8 +143,5 @@ class MOCAEngine:
                 status = ("#EDCE23", "Peringatan", "Atribut tidak lengkap")
             else:
                 status = ("#EDCE23", "Peringatan", f"Atributnya tidak lengkap, {nama} perlu izin")
-
-        # FASE 3 DIHAPUS. Sistem akan terus mengunci evaluasi APD di layar (Akses Ditolak/Peringatan)
-        # sampai pengguna melengkapi APD (Akses Diterima) atau pergi (Kamera Kosong).
             
         return status[0], status[1], status[2], waktu
