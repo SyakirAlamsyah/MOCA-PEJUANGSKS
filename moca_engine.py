@@ -94,7 +94,7 @@ class MOCAEngine:
 
         wajah_hilang = (current_time - self.last_seen_time) > 4
 
-        # 2. RESET ALAMI JIKA KAMERA KOSONG
+        # 2. STATUS MENUNGGU (Tanpa Delay, Responsif)
         if wajah_hilang:
             self.active_name = None
             self.fsm_stage = 0
@@ -115,12 +115,15 @@ class MOCAEngine:
         
         current_apd_combination = (apd_terdeteksi, pelanggaran_terdeteksi)
 
-        # --- FASE 1: SAPAAN (Ditahan 2.5 Detik untuk UI Dashboard) ---
+        # --- FASE 1: SAPAAN (Dengan Delay 5 Detik agar Smooth) ---
         if self.fsm_stage == 1:
             if current_time - self.stage_timer_start < 2.5:
                 pesan = f"Terdeteksi anggota lab: {nama}. Siapkan APD anda" if is_member else "Terdeteksi bukan anggota. Siapkan APD anda"
                 warna = "#006C49" if is_member else "#EDCE23"
                 status_title = "Dikenali" if is_member else "Peringatan"
+                
+                # Delay 5 detik khusus untuk status aktif selain Menunggu
+                time.sleep(5)
                 return warna, status_title, pesan, waktu
             else:
                 self.fsm_stage = 2
@@ -135,12 +138,12 @@ class MOCAEngine:
             
             sisa_waktu = 10 - int(current_time - self.stage_timer_start)
 
-            # 1. Jika APD Lengkap -> Akses Diterima & Jeda 10 Detik
+            # 1. Jika APD Lengkap -> Akses Diterima & Jeda Total
             if apd_terdeteksi == total_wajib and total_wajib > 0 and is_member:
                 status_pesan = f"Atribut lengkap, {nama} dapat akses"
                 
-                # --- TAMBAHAN BARU: Delay 10 Detik ---
-                time.sleep(10)
+                time.sleep(5) # Delay smooth penutup status
+                time.sleep(10) # Jeda waktu sukses sebelum reset
                 
                 self.fsm_stage = 0 
                 self.active_name = None 
@@ -149,18 +152,21 @@ class MOCAEngine:
                 
             # 2. Jika Melanggar/Tidak Lengkap -> Tampilkan Hitung Mundur
             if total_negatif > 0 and pelanggaran_terdeteksi == total_negatif:
-                status = ("#CF2C30", "Akses Ditolak", f"Tidak menggunakan APD ({sisa_waktu}s)")
+                status_warna, status_title, status_pesan = ("#CF2C30", "Akses Ditolak", f"Tidak menggunakan APD ({sisa_waktu}s)")
             elif apd_terdeteksi == total_wajib and total_wajib > 0 and not is_member:
-                status = ("#EDCE23", "Peringatan", f"Seseorang minta akses lab, perlu izin ({sisa_waktu}s)")
+                status_warna, status_title, status_pesan = ("#EDCE23", "Peringatan", f"Seseorang minta akses lab, perlu izin ({sisa_waktu}s)")
             else:
                 pesan_peringatan = f"Atributnya tidak lengkap, {nama} perlu izin ({sisa_waktu}s)" if is_member else f"Atribut tidak lengkap ({sisa_waktu}s)"
-                status = ("#EDCE23", "Peringatan", pesan_peringatan)
+                status_warna, status_title, status_pesan = ("#EDCE23", "Peringatan", pesan_peringatan)
 
             # 3. Jika timer 10 detik habis tanpa kelengkapan APD -> Reset
             if sisa_waktu <= 0:
                 self.fsm_stage = 0         
                 self.active_name = None    
                 self.last_seen_time = 0    
+                time.sleep(5)
                 return "#EDCE23", "Menunggu", "Waktu habis, memuat ulang...", waktu
 
-            return status[0], status[1], status[2], waktu
+            # Berikan delay 5 detik agar pergantian status evaluasi tidak patah-patah
+            time.sleep(5)
+            return status_warna, status_title, status_pesan, waktu
