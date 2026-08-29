@@ -23,12 +23,15 @@ class MOCAEngine:
             self.present_today.clear()
             self.current_date = date.today()
 
-        # PERBAIKAN: Gunakan konversi OpenCV agar struktur memori gambar utuh (contiguous)
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # OPTIMASI 1: Susutkan frame menjadi 1/4 ukuran asli
+        small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
         
-        # Eksekusi deteksi wajah
-        face_locations = face_recognition.face_locations(rgb_frame)
-        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+        # Konversi warna pada frame yang sudah disusutkan
+        rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+        
+        # Eksekusi deteksi pada frame kecil (jauh lebih ringan untuk CPU)
+        face_locations = face_recognition.face_locations(rgb_small_frame)
+        face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
         recognized_names = []
         for face_encoding in face_encodings:
