@@ -10,7 +10,7 @@ class MOCAEngine:
         
         # Load database wajah dari file .pkl
         with open("encodings.pkl", "rb") as f:
-            data = pickle.load(f)
+            data = pickle.load(f)   
             self.known_encodings = data["encodings"]
             self.known_names = data["names"]
             
@@ -23,7 +23,10 @@ class MOCAEngine:
             self.present_today.clear()
             self.current_date = date.today()
 
-        rgb_frame = frame[:, :, ::-1]
+        # PERBAIKAN: Gunakan konversi OpenCV agar struktur memori gambar utuh (contiguous)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Eksekusi deteksi wajah
         face_locations = face_recognition.face_locations(rgb_frame)
         face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
