@@ -53,8 +53,8 @@ class MOCAEngine:
         results = self.model.predict(source=frame, show=False, verbose=False)
         detected_classes = []
         
-        # Gabungkan semua ID yang diizinkan tampil di layar
-        allowed_ids = self.active_positive_ids + self.active_negative_ids + self.person_id
+        # PERBAIKAN: Hapus referensi '+ self.person_id'
+        allowed_ids = self.active_positive_ids + self.active_negative_ids
         
         for box in results[0].boxes:
             class_id = int(box.cls[0])
@@ -66,7 +66,7 @@ class MOCAEngine:
             confidence = float(box.conf[0]) * 100
             detected_classes.append(class_name)
             
-            # Warnai kotak merah untuk negatif, hijau untuk positif/person
+            # Warnai kotak merah untuk negatif, hijau untuk positif
             box_color = (0, 0, 255) if class_id in self.active_negative_ids else (0, 255, 0)
             
             x1, y1, x2, y2 = map(int, box.xyxy[0])
