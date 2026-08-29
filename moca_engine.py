@@ -59,22 +59,19 @@ class MOCAEngine:
             verbose=False,
             show_labels=True,
             show_conf=True
-        )
+)
         
         detected_classes = []
         for box in results[0].boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
             class_name = results[0].names[int(box.cls[0])]
             detected_classes.append(class_name)
-            
-            # Gambar visual manual dengan OpenCV
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(frame, class_name, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            
-        # 2. Teruskan hasil filter ke logika FSM
+
+        annotated_frame = results[0].plot(labels=True, conf=True)
+
         color, title, desc, waktu = self.process_fsm(detected_classes, recognized_names)
-        
-        return frame, color, title, desc, waktu
+
+        return annotated_frame, color, title, desc, waktu
+    
     def process_fsm(self, detected_classes, recognized_names):
         waktu = datetime.now().strftime("%H:%M")
         
