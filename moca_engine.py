@@ -9,9 +9,10 @@ class MOCAEngine:
     def __init__(self):
         self.model = YOLO("models/model.engine", task="detect")
         
-        # PARAMETER AKTIF (Contoh: 0=person, 1=lab coat, 2=goggle)
-        # Sistem akan otomatis menganggap ID selain 'person' sebagai APD yang wajib dipakai
-        self.active_class_ids = [0, 1, 2] 
+        # 1. PISAHKAN PARAMETER ID KELAS (Sesuaikan dengan ID model milikmu)
+        self.person_id = [0]
+        self.active_positive_ids = [1, 3] # Contoh: 1=lab coat, 2=goggle
+        self.active_negative_ids = [4, 6] # Contoh: 4=no lab coat, 5=no goggle
         
         with open("encodings.pkl", "rb") as f:
             data = pickle.load(f)
@@ -21,7 +22,6 @@ class MOCAEngine:
         self.present_today = set()
         self.current_date = date.today()
         
-        # Variabel Memori FSM
         self.last_face_time = 0      
         self.tolerance_delay = 5     
         self.is_checking_apd = False 
@@ -54,19 +54,26 @@ class MOCAEngine:
         results = self.model.predict(source=frame, show=False, verbose=False)
         detected_classes = []
         
+        # Gabungkan semua ID yang diizinkan tampil di layar
+        allowed_ids = self.active_positive_ids + self.active_negative_ids + self.person_id
+        
         for box in results[0].boxes:
             class_id = int(box.cls[0])
-            if class_id not in self.active_class_ids:
+            
+            if class_id not in allowed_ids:
                 continue
                 
             class_name = results[0].names[class_id]
             confidence = float(box.conf[0]) * 100
             detected_classes.append(class_name)
             
+            # Warnai kotak merah untuk negatif, hijau untuk positif/person
+            box_color = (0, 0, 255) if class_id in self.active_negative_ids else (0, 255, 0)
+            
             x1, y1, x2, y2 = map(int, box.xyxy[0])
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2)
             label_text = f"{class_name} {confidence:.1f}%"
-            cv2.putText(frame, label_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            cv2.putText(frame, label_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, box_color, 2)
             
         return frame, detected_classes
 
@@ -96,32 +103,34 @@ class MOCAEngine:
             
             self.is_checking_apd = True
 
-        # --- FASE 2: EVALUASI APD DINAMIS ---
-        # 1. Ekstrak daftar APD yang sedang diwajibkan (semua ID aktif selain 'person')
-        active_labels = [self.model.names[i] for i in self.active_class_ids]
-        required_apds = [label for label in active_labels if label.lower() != 'person']
+        # --- FASE 2: EVALUASI POSITIF VS NEGATIF ---
+        active_pos_labels = [self.model.names[i] for i in self.active_positive_ids]
+        active_neg_labels = [self.model.names[i] for i in self.active_negative_ids]
         
-        total_wajib = len(required_apds)
-        apd_terdeteksi = sum([1 for apd in required_apds if apd in detected_classes])
+        total_wajib = len(active_pos_labels)
+        total_negatif = len(active_neg_labels)
+        
+        apd_terdeteksi = sum([1 for apd in active_pos_labels if apd in detected_classes])
+        pelanggaran_terdeteksi = sum([1 for neg in active_neg_labels if neg in detected_classes])
 
-        if total_wajib == 0:
-            status = ("#EDCE23", "Menunggu", "Tidak ada parameter APD yang diaktifkan")
+        # Kondisi 1: Akses Ditolak (Semua target negatif terdeteksi)
+        if total_negatif > 0 and pelanggaran_terdeteksi == total_negatif:
+            status = ("#CF2C30", "Akses Ditolak", "Tidak menggunakan APD")
             
-        elif apd_terdeteksi == 0:
-            status = ("#CF2C30", "Akses Ditolak", "Tidak menggunakan APD sama sekali")
-            
-        elif apd_terdeteksi < total_wajib:
-            if not is_member:
-                status = ("#EDCE23", "Peringatan", "Atribut tidak lengkap")
-            else:
-                status = ("#EDCE23", "Peringatan", f"Atributnya tidak lengkap, {nama} perlu izin")
-                
-        elif apd_terdeteksi == total_wajib:
+        # Kondisi 2: Akses Diterima / Peringatan Orang Asing (Semua target positif terdeteksi)
+        elif apd_terdeteksi == total_wajib and total_wajib > 0:
             if not is_member:
                 status = ("#EDCE23", "Peringatan", "Seseorang minta akses lab, perlu izin")
             else:
                 self.is_checking_apd = False 
                 return "#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses", waktu
+                
+        # Kondisi 3: Peringatan Tidak Lengkap (Berada di tengah-tengah: APD positif kurang dari total, atau pelanggaran belum maksimal)
+        else:
+            if not is_member:
+                status = ("#EDCE23", "Peringatan", "Atribut tidak lengkap")
+            else:
+                status = ("#EDCE23", "Peringatan", f"Atributnya tidak lengkap, {nama} perlu izin")
 
         # --- FASE 3: LOOP TOLERANSI BERULANG ---
         self.fail_count += 1
