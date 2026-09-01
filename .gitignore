@@ -1,3 +1,4 @@
 .vscode/settings.json
-photos
-runs
+photos/
+runs/
+pin.py
