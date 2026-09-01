@@ -7,7 +7,7 @@ MOCA adalah sebuah sistem pemantauan Keselamatan dan Kesehatan Kerja (K3) cerdas
 Repositori ini berisi program dan file-file yang menjadi dasar perangkat lunak dari prototype MOCA. Mulai dari konfigurasi docker, kode python, dan model yang digunakan. Saya juga akan menambahkan beberapa hal lain seperti cara instalasi, bagaimana menggunakan YOLO di Jetson Nano, penjelasan setiap script python, dan lainnya berkaitan dengan teknis penggunaan Jetson Nano.
 
 <details>
-<summary><h3>Latar Belakang</h3> <hr style="height: 1px"> </summary>
+<summary><h3>Latar Belakang</h3> <hr style="border: none;"> </summary>
 
 Isi konten di sini. Anda bisa memasukkan teks, gambar, atau bahkan kode Markdown lainnya.
 </details>
