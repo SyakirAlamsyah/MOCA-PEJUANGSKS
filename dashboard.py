@@ -3,22 +3,18 @@ import cv2
 import time
 from moca_engine import MOCAEngine
 
-# Konfigurasi Layar Web
 st.set_page_config(page_title="MOCA Dashboard", layout="wide")
 
-# Inisialisasi Memori Interaktif (Session State)
 if 'logs' not in st.session_state: st.session_state.logs = []
 if 'hadir' not in st.session_state: st.session_state.hadir = 0
 if 'ditolak' not in st.session_state: st.session_state.ditolak = 0
 if 'last_status' not in st.session_state: st.session_state.last_status = None
 
-# Muat Mesin Utama MOCA
 @st.cache_resource
 def load_engine():
     return MOCAEngine()
 engine = load_engine()
 
-# Injeksi CSS Khusus Dashboard
 st.markdown("""
 <style>
     .log-card { padding: 16px; border-bottom: 1px solid #CBCBCB; display: flex; align-items: center; justify-content: space-between; }
@@ -68,11 +64,11 @@ while True:
     
     frame_count += 1
     
-    # 1. Eksekusi Face Recognition (Setiap 30 Frame / ~1 detik)
+    # Eksekusi Face Recognition (Setiap 30 Frame / ~1 detik)
     if frame_count % 30 == 0:
         current_names, st.session_state.hadir = engine.check_attendance(frame)
         
-    # 2. Eksekusi YOLO & FSM (Setiap 3 Frame)
+    # Eksekusi YOLO & FSM (Setiap 3 Frame)
     if frame_count % 3 == 0:
         
         annotated_frame, detected_classes = engine.get_detections(frame)
@@ -101,7 +97,7 @@ while True:
             if color == "#CF2C30": 
                 st.session_state.ditolak += 1
 
-        # 3. Render Visual UI
+        # Render Visual UI
         frame_rgb = cv2.cvtColor(cv2.resize(annotated_frame, (480, 360)), cv2.COLOR_BGR2RGB)
         FRAME_WINDOW.image(frame_rgb)
         
@@ -109,5 +105,4 @@ while True:
         metric_hadir.markdown(f"<div class='metric-card'><div class='text-title'>Anggota hadir hari ini</div><h1 style='margin:0;'>{st.session_state.hadir}</h1></div>", unsafe_allow_html=True)
         LOG_WINDOW.markdown("".join(st.session_state.logs), unsafe_allow_html=True)
         
-    # Jeda pencegah lag WebSocket jaringan
     time.sleep(0.05)
