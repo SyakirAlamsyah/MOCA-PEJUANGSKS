@@ -9,28 +9,33 @@ import atexit
 
 class MOCAEngine:
     def __init__(self):
+
+        # Model yang digunakan
         self.model = YOLO("models/model3.engine", task="detect")
-        
+
+        # Label yang aktif dari model saat ini
         self.active_positive_ids = [1, 3] 
         self.active_negative_ids = [4, 6] 
-        
+
+        # Ngambil data Face Recognition
         with open("encodings.pkl", "rb") as f:
             data = pickle.load(f)
             self.known_encodings = data["encodings"]
             self.known_names = data["names"]
-            
+
+        # Tanggal Hari ini    
         self.present_today = set()
         self.current_date = date.today()
+
         
-        # Memori Penahan Wajah
         self.active_name = None
         self.last_seen_time = 0
         
-        # Memori FSM 3 Fase
         self.fsm_stage = 0
         self.last_apd_combination = None  
         self.stage_timer_start = 0
 
+        # Setup Pin untuk LED
         self.PIN_RED = 11    
         self.PIN_YELLOW = 13 
         self.PIN_GREEN = 15  
@@ -43,22 +48,19 @@ class MOCAEngine:
         atexit.register(self.cleanup_gpio)
 
     def cleanup_gpio(self):
-        """Mematikan semua pin GPIO saat program ditutup"""
         GPIO.cleanup()
 
     def update_led(self, hex_color):
-        """Menyalakan LED sesuai dengan warna status FSM"""
-        # Matikan semua LED terlebih dahulu agar tidak ada warna ganda
+
         GPIO.output(self.PIN_RED, GPIO.LOW)
         GPIO.output(self.PIN_YELLOW, GPIO.LOW)
         GPIO.output(self.PIN_GREEN, GPIO.LOW)
         
-        # Nyalakan LED yang sesuai
-        if hex_color == "#CF2C30":    # Merah (Akses Ditolak / Bahaya)
+        if hex_color == "#CF2C30":
             GPIO.output(self.PIN_RED, GPIO.HIGH)
-        elif hex_color == "#EDCE23":  # Kuning (Menunggu / Peringatan / Cooldown)
+        elif hex_color == "#EDCE23": 
             GPIO.output(self.PIN_YELLOW, GPIO.HIGH)
-        elif hex_color == "#006C49":  # Hijau (Akses Diterima / Aman)
+        elif hex_color == "#006C49": 
             GPIO.output(self.PIN_GREEN, GPIO.HIGH)
 
     def check_attendance(self, frame):
@@ -88,7 +90,7 @@ class MOCAEngine:
         results = self.model.predict(source=frame, show=False, verbose=False)
         detected_classes = []
         
-        # PERBAIKAN: Hapus referensi '+ self.person_id'
+
         allowed_ids = self.active_positive_ids + self.active_negative_ids
         
         for box in results[0].boxes:
@@ -101,7 +103,6 @@ class MOCAEngine:
             confidence = float(box.conf[0]) * 100
             detected_classes.append(class_name)
             
-            # Warnai kotak merah untuk negatif, hijau untuk positif
             box_color = (0, 0, 255) if class_id in self.active_negative_ids else (0, 255, 0)
             
             x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -115,30 +116,24 @@ class MOCAEngine:
         waktu = datetime.now().strftime("%H:%M")
         current_time = time.time()
         
-        # --- FASE 3: COOLDOWN (Pengganti time.sleep) ---
-        # Menahan tampilan status sukses/gagal selama beberapa detik TANPA menghentikan kamera
         if hasattr(self, 'fsm_stage') and self.fsm_stage == 3:
             if current_time - self.stage_timer_start < 5: # Jeda 5 detik
                 return self.last_status_warna, self.last_status_title, self.last_status_pesan, waktu
             else:
-                # Reset sistem setelah masa cooldown habis
                 self.fsm_stage = 0 
                 self.active_name = None 
                 self.last_seen_time = 0 
                 return "#EDCE23", "Menunggu", "Memuat ulang sistem...", waktu
 
-        # 1. UPDATE MEMORI WAJAH 
         if len(recognized_names) > 0:
             if self.active_name != recognized_names[0]:
                 self.active_name = recognized_names[0]
                 self.fsm_stage = 1 
                 self.stage_timer_start = current_time
                 
-            self.last_seen_time = current_time
 
         wajah_hilang = (current_time - self.last_seen_time) > 4
 
-        # 2. STATUS MENUNGGU
         if wajah_hilang:
             self.active_name = None
             self.fsm_stage = 0
@@ -159,7 +154,6 @@ class MOCAEngine:
         
         current_apd_combination = (apd_terdeteksi, pelanggaran_terdeteksi)
 
-        # --- FASE 1: SAPAAN ---
         if self.fsm_stage == 1:
             if current_time - self.stage_timer_start < 2.5:
                 pesan = f"Terdeteksi anggota lab: {nama}. Siapkan APD anda" if is_member else "Terdeteksi bukan anggota. Siapkan APD anda"
@@ -171,22 +165,18 @@ class MOCAEngine:
                 self.last_apd_combination = current_apd_combination
                 self.stage_timer_start = current_time 
 
-        # --- FASE 2: EVALUASI APD & TIMER 10 DETIK ---
         if self.fsm_stage == 2:
             if current_apd_combination != self.last_apd_combination:
                 self.last_apd_combination = current_apd_combination
                 self.stage_timer_start = current_time
             
             sisa_waktu = 10 - int(current_time - self.stage_timer_start)
-
-            # 1. Jika APD Lengkap -> Akses Diterima & Masuk Cooldown
             if apd_terdeteksi == total_wajib and total_wajib > 0 and is_member:
                 self.last_status_warna, self.last_status_title, self.last_status_pesan = ("#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses")
                 self.fsm_stage = 3 # Pindah ke fase cooldown
                 self.stage_timer_start = current_time
                 return self.last_status_warna, self.last_status_title, self.last_status_pesan, waktu
                 
-            # 2. Jika Melanggar/Tidak Lengkap -> Tampilkan Hitung Mundur
             if total_negatif > 0 and pelanggaran_terdeteksi == total_negatif:
                 status_warna, status_title, status_pesan = ("#CF2C30", "Akses Ditolak", f"Tidak menggunakan APD ({sisa_waktu}s)")
             elif apd_terdeteksi == total_wajib and total_wajib > 0 and not is_member:
@@ -194,8 +184,6 @@ class MOCAEngine:
             else:
                 pesan_peringatan = f"Atributnya tidak lengkap, {nama} perlu izin ({sisa_waktu}s)" if is_member else f"Atribut tidak lengkap ({sisa_waktu}s)"
                 status_warna, status_title, status_pesan = ("#EDCE23", "Peringatan", pesan_peringatan)
-
-            # 3. Jika timer habis -> Masuk Cooldown lalu Reset
             if sisa_waktu <= 0:
                 self.last_status_warna, self.last_status_title, self.last_status_pesan = ("#EDCE23", "Waktu Habis", "Waktu evaluasi habis, memuat ulang...")
                 self.fsm_stage = 3 # Pindah ke fase cooldown
