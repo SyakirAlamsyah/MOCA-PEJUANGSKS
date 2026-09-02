@@ -59,8 +59,36 @@ aaaaaa
 ## ⚙️ Konfigurasi Software dan Instalasi
 
 ### Spesfikasi dan Konfigurasi Software yang Digunakan
+| Software | Spesifikasi / Detail |
+| :--- | :--- |
+| **SDK** | JetPack 4.6 |
+| **PYTHON** | 3.8 |
+| **YOLO** | YOLOv8 |
+| **Docker Image** | [ultralytics:latest-jetson-jetpack4](https://hub.docker.com/layers/ultralytics/ultralytics/latest-jetson-jetpack4/images/sha256-cf57cd9b92e4b7f902af1cae96196cc875490540a07fc50ea16a81721f357732) |
+
+Anda bisa melihat konfigurasi docker lebih detail pada [Dockerfile](https://github.com/SyakirAlamsyah/MOCA-PEJUANGSKS/blob/master/Dockerfile) atau pada snippets berikut ini
+```
+FROM ultralytics/ultralytics:latest-jetson-jetpack4
+RUN apt-get update && apt-get install -y build-essential cmake
+RUN pip3 install numpy==1.23.5 streamlit face_recognition
+WORKDIR /workspace
+```
+Mengapa memakai docker? Cek [bagian ini](#keterbatasan-jetson-nano-dan-mengapa-pakai-docker).
 
 ### Cara Instalasi
+
+## Lebih banyak terkait projek ini
+### Kenapa Jetson Nano?
+Berbeda dengan sistem deteksi modern yang sangat bergantung pada *Cloud Computing* atau *server* besar berspesifikasi tinggi, MOCA sengaja dirancang untuk dieksekusi 100% secara lokal pada perangkat **NVIDIA Jetson Nano Developer Kit B01**. Pemilihan arsitektur desentralisasi (*Edge Computing*) ini memberikan tiga keuntungan krusial:
+1. **Zero Latency:** Respons instan dalam hitungan milidetik karena sistem tidak perlu menunggu proses transmisi video bolak-balik melalui jaringan internet.
+2. **Privasi Absolut:** Video aktivitas lab tidak pernah dikirim keluar dari perangkat, mencegah risiko kebocoran data.
+3. **Efisiensi Energi (Resource-Efficient):** Beroperasi dengan konsumsi daya di bawah 10 Watt, sangat sejalan dengan prinsip *Sustainable Intelligence*.
+
+### Keterbatasan Jetson Nano
+Menjalankan sistem deteksi AI modern di atas perangkat lawas seperti Jetson Nano (dengan OS bawaan Ubuntu 18.04 & Python 3.6) menghadirkan tantangan bottleneck memori dan termal yang ekstrem. Dengan itu dilakukan optimalisasi rekayasa perangkat lunak melalui:
+*   **Algorithmic Efficiency (YOLO + FSM):** Alih-alih menggunakan algoritma pelacakan visual yang menguras CPU, kami menggunakan Finite State Machine (FSM) berkompleksitas matematika konstan untuk mengevaluasi status K3 (Aman, Peringatan, Bahaya) secara sekuensial. Logika ini secara efektif mengeliminasi alarm palsu akibat kedipan kamera tanpa memicu panas berlebih (thermal throttling).
+*   **Pakai Docker?:** Seluruh sistem dibungkus menggunakan Docker untuk memastikan isolasi environment (menjalankan Python 3.8) secara mulus tanpa merusak pustaka bawaan sistem host. Ini juga dilakukan karena Jetpack Jetson Nano terbatas pada versi Python yang sudah ada di Jetpack nya (3.6). Python versi lebih tinggi tidak didukung oleh Jetson Nano dan Jetpack nya, sehingga memperbaharui versi akan menjadi kurang optimal. **Agar tetap bisa menggunakan YOLO dan memanfaatkan kekuatan GPU Jetson Nano dengan optimal, maka digunakan docker**.
+*   **TensorRT Acceleration:** Mengonversi model standar YOLOv8 (.pt) menjadi format mesin TensorRT (.engine) guna memaksimalkan utilitas dari 128-core GPU Maxwell bawaan, mendongkrak performa FPS secara drastis pada perangkat edge.
 
 
 
