@@ -44,7 +44,6 @@ class MOCAEngine:
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup([self.PIN_RED, self.PIN_YELLOW, self.PIN_GREEN], GPIO.OUT, initial=GPIO.LOW)
         
-        # Mendaftarkan fungsi bersih-bersih agar LED mati saat program dihentikan
         atexit.register(self.cleanup_gpio)
 
     def cleanup_gpio(self):
@@ -117,7 +116,7 @@ class MOCAEngine:
         current_time = time.time()
         
         if hasattr(self, 'fsm_stage') and self.fsm_stage == 3:
-            if current_time - self.stage_timer_start < 5: # Jeda 5 detik
+            if current_time - self.stage_timer_start < 5:
                 return self.last_status_warna, self.last_status_title, self.last_status_pesan, waktu
             else:
                 self.fsm_stage = 0 
@@ -173,7 +172,7 @@ class MOCAEngine:
             sisa_waktu = 10 - int(current_time - self.stage_timer_start)
             if apd_terdeteksi == total_wajib and total_wajib > 0 and is_member:
                 self.last_status_warna, self.last_status_title, self.last_status_pesan = ("#006C49", "Akses Diterima", f"Atribut lengkap, {nama} dapat akses")
-                self.fsm_stage = 3 # Pindah ke fase cooldown
+                self.fsm_stage = 3
                 self.stage_timer_start = current_time
                 return self.last_status_warna, self.last_status_title, self.last_status_pesan, waktu
                 
@@ -186,7 +185,7 @@ class MOCAEngine:
                 status_warna, status_title, status_pesan = ("#EDCE23", "Peringatan", pesan_peringatan)
             if sisa_waktu <= 0:
                 self.last_status_warna, self.last_status_title, self.last_status_pesan = ("#EDCE23", "Waktu Habis", "Waktu evaluasi habis, memuat ulang...")
-                self.fsm_stage = 3 # Pindah ke fase cooldown
+                self.fsm_stage = 3 
                 self.stage_timer_start = current_time
                 return self.last_status_warna, self.last_status_title, self.last_status_pesan, waktu
 
